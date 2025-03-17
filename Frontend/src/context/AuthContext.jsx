@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { sendWelcomeEmail } from '../services/emailService';
 
 const AuthContext = createContext();
 
@@ -36,6 +37,14 @@ export function AuthProvider({ children }) {
 
       // Store user data in Firestore
       await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+
+      // Send welcome email
+      try {
+        await sendWelcomeEmail(userData);
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+        // Don't throw the error as the account was still created successfully
+      }
 
       // Update local state
       setUserType(userType);

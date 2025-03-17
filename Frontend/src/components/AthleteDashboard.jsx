@@ -29,9 +29,12 @@ import {
   Tabs,
   Tab,
   Stack,
-  IconButton
+  IconButton,
+  Link,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
-import { collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import SportsIcon from '@mui/icons-material/Sports';
 import WorkIcon from '@mui/icons-material/Work';
@@ -40,6 +43,15 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import LogoutIcon from '@mui/icons-material/Logout';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import PendingIcon from '@mui/icons-material/Pending';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import Rating from '@mui/material/Rating';
+import StarIcon from '@mui/icons-material/Star';
 
 export default function AthleteDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -59,8 +71,13 @@ export default function AthleteDashboard() {
     date: '',
     time: '',
     duration: '60',
-    notes: ''
+    notes: '',
+    isVirtual: false
   });
+  const [completionDialog, setCompletionDialog] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [feedback, setFeedback] = useState('');
 
   // Time slots for the booking
   const timeSlots = [
@@ -75,6 +92,67 @@ export default function AthleteDashboard() {
     { value: '90', label: '1.5 hours' },
     { value: '120', label: '2 hours' }
   ];
+
+  // Function to get upcoming sessions
+  const getUpcomingSessions = (bookings) => {
+    const now = new Date();
+
+    return bookings.filter(booking => {
+      // Include both confirmed and pending_completion sessions
+      if (booking.status !== 'confirmed' && booking.status !== 'pending_completion') return false;
+
+      const [year, month, day] = booking.date.split('-').map(Number);
+      const [hours, minutes] = booking.time.split(':').map(Number);
+      const sessionDate = new Date(year, month - 1, day, hours, minutes);
+      const sessionEndTime = new Date(sessionDate.getTime() + booking.duration * 60000);
+
+      // For pending_completion sessions, always show them
+      if (booking.status === 'pending_completion') return true;
+
+      // For confirmed sessions, show if they haven't ended
+      return sessionEndTime > now;
+    }).sort((a, b) => {
+      const dateA = new Date(a.date + ' ' + a.time);
+      const dateB = new Date(b.date + ' ' + b.time);
+      return dateA - dateB;
+    });
+  };
+
+  // Function to get confirmed sessions
+  const getConfirmedSessions = (bookings) => {
+    return bookings.filter(booking => booking.status === 'confirmed')
+      .sort((a, b) => {
+        const dateA = new Date(a.date + ' ' + a.time);
+        const dateB = new Date(b.date + ' ' + b.time);
+        return dateA - dateB;
+      });
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'warning';
+      case 'confirmed':
+        return 'success';
+      case 'cancelled':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending':
+        return <PendingIcon />;
+      case 'confirmed':
+        return <CheckCircleIcon />;
+      case 'cancelled':
+        return <CancelIcon />;
+      default:
+        return <AccessTimeIcon />;
+    }
+  };
 
   useEffect(() => {
     fetchCoaches();
@@ -134,8 +212,19 @@ export default function AthleteDashboard() {
       date: '',
       time: '',
       duration: '60',
-      notes: ''
+      notes: '',
+      isVirtual: false
     });
+  };
+
+  const copyMeetLink = (link) => {
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        console.log('Link copied to clipboard');
+      })
+      .catch((err) => {
+        console.error('Failed to copy link:', err);
+      });
   };
 
   const handleBookingSubmit = async () => {
@@ -157,7 +246,7 @@ export default function AthleteDashboard() {
 
       await addDoc(collection(db, 'bookings'), bookingData);
       handleBookingClose();
-      // You might want to show a success message or update the UI
+      await fetchBookings();
     } catch (error) {
       console.error('Error creating booking:', error);
       setError('Failed to create booking');
@@ -175,6 +264,65 @@ export default function AthleteDashboard() {
       console.error('Failed to logout:', error);
       setError('Failed to logout');
       setLoading(false);
+    }
+  };
+
+  const handleCompletionConfirm = async () => {
+    if (!selectedBooking) return;
+
+    try {
+      const updateData = {
+        status: 'pending_completion',
+        completedByAthlete: true,
+        completedByAthleteAt: new Date().toISOString(),
+        rating: rating,
+        feedback: feedback
+      };
+
+      // If coach has already marked it complete, set it to completed
+      if (selectedBooking.completedByCoach) {
+        updateData.status = 'completed';
+        updateData.completedAt = new Date().toISOString();
+      }
+
+      await updateDoc(doc(db, 'bookings', selectedBooking.id), updateData);
+
+      setCompletionDialog(false);
+      setSelectedBooking(null);
+      setRating(5);
+      setFeedback('');
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error confirming completion:', error);
+      setError('Failed to confirm session completion');
+    }
+  };
+
+  const getCompletedSessions = (bookings) => {
+    return bookings.filter(booking => booking.status === 'completed')
+      .sort((a, b) => {
+        const dateA = new Date(a.date + ' ' + a.time);
+        const dateB = new Date(b.date + ' ' + b.time);
+        return dateB - dateA; // Sort by most recent first
+      });
+  };
+
+  const isSessionFinished = (booking) => {
+    const now = new Date();
+    const [year, month, day] = booking.date.split('-').map(Number);
+    const [hours, minutes] = booking.time.split(':').map(Number);
+    const sessionDate = new Date(year, month - 1, day, hours, minutes);
+    const sessionEndTime = new Date(sessionDate.getTime() + booking.duration * 60000);
+    return now > sessionEndTime;
+  };
+
+  const handleMarkAsCompleted = async (booking) => {
+    try {
+      setSelectedBooking(booking);
+      setCompletionDialog(true);
+    } catch (error) {
+      console.error('Error marking session as completed:', error);
+      setError('Failed to mark session as completed');
     }
   };
 
@@ -402,99 +550,494 @@ export default function AthleteDashboard() {
                 ))}
               </Grid>
             ) : (
-              <Grid 
-                container 
-                spacing={3}
-                columns={12}
-              >
-                {bookings.map((booking) => (
-                  <Grid item xs={12} sm={6} key={booking.id}>
-                    <Card 
-                      elevation={1}
-                      sx={{ 
-                        height: '100%',
-                        borderRadius: 2,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: 3
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ p: 3 }}>
-                        <Stack spacing={3}>
-                          <Typography 
-                            variant="h5"
+              <Stack spacing={4}>
+                {/* Upcoming Sessions Section */}
+                <Box>
+                  <Typography 
+                    variant="h5" 
+                    sx={{ 
+                      mb: 3,
+                      fontWeight: 600,
+                      color: theme.palette.text.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <CheckCircleIcon color="success" />
+                    Upcoming Sessions
+                    {getUpcomingSessions(bookings).length > 0 && (
+                      <Chip 
+                        label={getUpcomingSessions(bookings).length} 
+                        color="success" 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Typography>
+
+                  <Grid container spacing={3}>
+                    {getUpcomingSessions(bookings).length > 0 ? (
+                      getUpcomingSessions(bookings).map((booking) => (
+                        <Grid item xs={12} sm={6} key={booking.id}>
+                          <Card 
+                            elevation={1}
                             sx={{ 
-                              fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                              fontWeight: 600,
-                              mb: 1
+                              height: '100%',
+                              borderRadius: 2,
+                              transition: 'all 0.2s ease',
+                              position: 'relative',
+                              overflow: 'visible',
+                              border: `1px solid ${theme.palette.success.light}`,
+                              '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: 3
+                              }
                             }}
                           >
-                            Session with {booking.coachName}
+                            <CardContent sx={{ p: 3 }}>
+                              <Stack spacing={3}>
+                                {/* Session Header */}
+                                <Box>
+                                  <Typography 
+                                    variant="h5"
+                                    sx={{ 
+                                      fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                                      fontWeight: 600,
+                                      mb: 1
+                                    }}
+                                  >
+                                    Session with {booking.coachName}
+                                  </Typography>
+                                  
+                                  {booking.isVirtual && (
+                                    <Chip
+                                      icon={<VideocamIcon />}
+                                      label="Virtual Session"
+                                      color="info"
+                                      size="small"
+                                      sx={{ borderRadius: '12px', fontSize: '0.875rem' }}
+                                    />
+                                  )}
+                                </Box>
+
+                                {/* Session Details */}
+                                <Paper 
+                                  variant="outlined" 
+                                  sx={{ 
+                                    p: 2,
+                                    backgroundColor: theme.palette.grey[50],
+                                    borderRadius: 2
+                                  }}
+                                >
+                                  <Stack spacing={2}>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <CalendarMonthIcon color="primary" />
+                                      <Typography sx={{ fontSize: '1rem' }}>
+                                        {new Date(booking.date).toLocaleDateString(undefined, {
+                                          weekday: 'long',
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        })}
+                                      </Typography>
+                                    </Stack>
+
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <AccessTimeIcon color="primary" />
+                                      <Typography sx={{ fontSize: '1rem' }}>
+                                        {booking.time} • {booking.duration} minutes
+                                      </Typography>
+                                    </Stack>
+                                  </Stack>
+                                </Paper>
+
+                                {/* Meet Link Section for Virtual Sessions */}
+                                {booking.isVirtual && booking.meetLink && (
+                                  <Paper 
+                                    variant="outlined" 
+                                    sx={{ 
+                                      p: 2,
+                                      backgroundColor: theme.palette.primary[50],
+                                      borderRadius: 2,
+                                      borderColor: theme.palette.primary[200]
+                                    }}
+                                  >
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <VideocamIcon color="primary" />
+                                      <Link 
+                                        href={booking.meetLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        sx={{ 
+                                          flexGrow: 1,
+                                          color: theme.palette.primary.main,
+                                          textDecoration: 'none',
+                                          '&:hover': { textDecoration: 'underline' }
+                                        }}
+                                      >
+                                        Join Google Meet
+                                      </Link>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => copyMeetLink(booking.meetLink)}
+                                        title="Copy link"
+                                        sx={{ 
+                                          backgroundColor: 'white',
+                                          '&:hover': { backgroundColor: theme.palette.grey[100] }
+                                        }}
+                                      >
+                                        <ContentCopyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Stack>
+                                  </Paper>
+                                )}
+
+                                {/* Notes Section */}
+                                {booking.notes && (
+                                  <Paper 
+                                    variant="outlined" 
+                                    sx={{ 
+                                      p: 2,
+                                      backgroundColor: 'white',
+                                      borderRadius: 2,
+                                      borderColor: theme.palette.grey[200]
+                                    }}
+                                  >
+                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                      Session Notes
+                                    </Typography>
+                                    <Typography>{booking.notes}</Typography>
+                                  </Paper>
+                                )}
+
+                                {/* Session Status and Actions */}
+                                {booking.status === 'confirmed' && (
+                                  <Box sx={{ mt: 2 }}>
+                                    {isSessionFinished(booking) ? (
+                                      <Alert 
+                                        severity="info"
+                                        action={
+                                          <Button
+                                            color="primary"
+                                            variant="contained"
+                                            onClick={() => handleMarkAsCompleted(booking)}
+                                            startIcon={<DoneAllIcon />}
+                                            size="small"
+                                          >
+                                            Mark as Completed
+                                          </Button>
+                                        }
+                                      >
+                                        This session has finished. Please mark it as completed.
+                                      </Alert>
+                                    ) : (
+                                      <Alert severity="success">
+                                        Session is scheduled and confirmed
+                                      </Alert>
+                                    )}
+                                  </Box>
+                                )}
+
+                                {booking.status === 'pending_completion' && !booking.completedByAthlete && booking.completedByCoach && (
+                                  <Box sx={{ mt: 2 }}>
+                                    <Alert 
+                                      severity="info"
+                                      action={
+                                        <Button
+                                          color="primary"
+                                          variant="contained"
+                                          onClick={() => {
+                                            setSelectedBooking(booking);
+                                            setCompletionDialog(true);
+                                          }}
+                                          size="small"
+                                        >
+                                          Confirm & Rate
+                                        </Button>
+                                      }
+                                    >
+                                      Your coach has marked this session as completed. Please confirm and provide feedback.
+                                    </Alert>
+                                  </Box>
+                                )}
+
+                                {booking.status === 'pending_completion' && booking.completedByAthlete && !booking.completedByCoach && (
+                                  <Box sx={{ mt: 2 }}>
+                                    <Alert 
+                                      severity="warning"
+                                      icon={<PendingIcon />}
+                                    >
+                                      Waiting for coach to confirm completion
+                                    </Alert>
+                                  </Box>
+                                )}
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item xs={12}>
+                        <Paper 
+                          sx={{ 
+                            p: 4,
+                            textAlign: 'center',
+                            borderRadius: 2,
+                            backgroundColor: 'white',
+                            borderStyle: 'dashed',
+                            borderColor: theme.palette.success.light
+                          }}
+                        >
+                          <Typography variant="h6" color="text.secondary">
+                            No upcoming sessions
                           </Typography>
-
-                          <Stack spacing={2}>
-                            <Stack direction="row" alignItems="center" spacing={2}>
-                              <CalendarMonthIcon sx={{ fontSize: '1.5rem' }} />
-                              <Typography sx={{ fontSize: { xs: '1rem', sm: '1.1rem' } }}>
-                                {new Date(booking.date).toLocaleDateString()}
-                              </Typography>
-                            </Stack>
-
-                            <Stack direction="row" alignItems="center" spacing={2}>
-                              <AccessTimeIcon sx={{ fontSize: '1.5rem' }} />
-                              <Typography sx={{ fontSize: { xs: '1rem', sm: '1.1rem' } }}>
-                                {booking.time} ({booking.duration} min)
-                              </Typography>
-                            </Stack>
-                          </Stack>
-
-                          {booking.notes && (
-                            <Paper 
-                              variant="outlined" 
-                              sx={{ 
-                                p: 3,
-                                backgroundColor: theme.palette.grey[50],
-                                borderRadius: 1
-                              }}
-                            >
-                              <Typography 
-                                sx={{ 
-                                  fontSize: { xs: '0.875rem', sm: '1rem' }
-                                }}
-                              >
-                                {booking.notes}
-                              </Typography>
-                            </Paper>
-                          )}
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                        </Paper>
+                      </Grid>
+                    )}
                   </Grid>
-                ))}
+                </Box>
 
-                {bookings.length === 0 && (
-                  <Grid item xs={12}>
-                    <Paper 
-                      sx={{ 
-                        p: 4,
-                        textAlign: 'center',
-                        borderRadius: 2,
-                        backgroundColor: 'white'
-                      }}
-                    >
-                      <Typography 
-                        variant="h5" 
-                        color="text.secondary"
-                        sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
-                      >
-                        No bookings found
-                      </Typography>
-                    </Paper>
+                {/* All Confirmed Sessions Section */}
+                <Box>
+                  <Typography 
+                    variant="h5" 
+                    sx={{ 
+                      mb: 3,
+                      fontWeight: 600,
+                      color: theme.palette.text.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <DoneAllIcon color="info" />
+                    All Confirmed Sessions
+                    {getConfirmedSessions(bookings).length > 0 && (
+                      <Chip 
+                        label={getConfirmedSessions(bookings).length} 
+                        color="info" 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Typography>
+
+                  <Grid container spacing={3}>
+                    {getConfirmedSessions(bookings).length > 0 ? (
+                      getConfirmedSessions(bookings).map((booking) => (
+                        <Grid item xs={12} sm={6} key={booking.id}>
+                          <Card 
+                            elevation={1}
+                            sx={{ 
+                              height: '100%',
+                              borderRadius: 2,
+                              border: `1px solid ${theme.palette.info.light}`
+                            }}
+                          >
+                            <CardContent sx={{ p: 3 }}>
+                              {/* Same content structure as Upcoming Sessions */}
+                              <Stack spacing={3}>
+                                <Box>
+                                  <Typography variant="h5" sx={{ fontSize: '1.25rem', fontWeight: 600, mb: 1 }}>
+                                    Session with {booking.coachName}
+                                  </Typography>
+                                  {booking.isVirtual && (
+                                    <Chip icon={<VideocamIcon />} label="Virtual Session" color="info" size="small" />
+                                  )}
+                                </Box>
+
+                                <Paper variant="outlined" sx={{ p: 2, backgroundColor: theme.palette.grey[50], borderRadius: 2 }}>
+                                  <Stack spacing={2}>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <CalendarMonthIcon color="primary" />
+                                      <Typography>
+                                        {new Date(booking.date).toLocaleDateString(undefined, {
+                                          weekday: 'long',
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        })}
+                                      </Typography>
+                                    </Stack>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <AccessTimeIcon color="primary" />
+                                      <Typography>{booking.time} • {booking.duration} minutes</Typography>
+                                    </Stack>
+                                  </Stack>
+                                </Paper>
+
+                                {booking.isVirtual && booking.meetLink && (
+                                  <Paper variant="outlined" sx={{ p: 2, backgroundColor: theme.palette.primary[50], borderRadius: 2 }}>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <VideocamIcon color="primary" />
+                                      <Link 
+                                        href={booking.meetLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        sx={{ flexGrow: 1, color: theme.palette.primary.main }}
+                                      >
+                                        Join Google Meet
+                                      </Link>
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => copyMeetLink(booking.meetLink)}
+                                        sx={{ backgroundColor: 'white' }}
+                                      >
+                                        <ContentCopyIcon fontSize="small" />
+                                      </IconButton>
+                                    </Stack>
+                                  </Paper>
+                                )}
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item xs={12}>
+                        <Paper 
+                          sx={{ 
+                            p: 4,
+                            textAlign: 'center',
+                            borderRadius: 2,
+                            backgroundColor: 'white',
+                            borderStyle: 'dashed',
+                            borderColor: theme.palette.info.light
+                          }}
+                        >
+                          <Typography variant="h6" color="text.secondary">
+                            No confirmed sessions
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    )}
                   </Grid>
-                )}
-              </Grid>
+                </Box>
+
+                {/* Completed Sessions Section */}
+                <Box>
+                  <Typography 
+                    variant="h5" 
+                    sx={{ 
+                      mb: 3,
+                      fontWeight: 600,
+                      color: theme.palette.text.primary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <DoneAllIcon color="info" />
+                    Completed Sessions
+                    {getCompletedSessions(bookings).length > 0 && (
+                      <Chip 
+                        label={getCompletedSessions(bookings).length} 
+                        color="info" 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Typography>
+
+                  <Grid container spacing={3}>
+                    {getCompletedSessions(bookings).length > 0 ? (
+                      getCompletedSessions(bookings).map((booking) => (
+                        <Grid item xs={12} sm={6} key={booking.id}>
+                          <Card 
+                            elevation={1}
+                            sx={{ 
+                              height: '100%',
+                              borderRadius: 2,
+                              border: `1px solid ${theme.palette.info.light}`
+                            }}
+                          >
+                            <CardContent sx={{ p: 3 }}>
+                              <Stack spacing={3}>
+                                <Box>
+                                  <Typography variant="h5" sx={{ fontSize: '1.25rem', fontWeight: 600, mb: 1 }}>
+                                    Session with {booking.coachName}
+                                  </Typography>
+                                  {booking.isVirtual && (
+                                    <Chip icon={<VideocamIcon />} label="Virtual Session" color="info" size="small" />
+                                  )}
+                                </Box>
+
+                                <Paper variant="outlined" sx={{ p: 2, backgroundColor: theme.palette.grey[50], borderRadius: 2 }}>
+                                  <Stack spacing={2}>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <CalendarMonthIcon color="primary" />
+                                      <Typography>
+                                        {new Date(booking.date).toLocaleDateString(undefined, {
+                                          weekday: 'long',
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        })}
+                                      </Typography>
+                                    </Stack>
+                                    <Stack direction="row" alignItems="center" spacing={2}>
+                                      <AccessTimeIcon color="primary" />
+                                      <Typography>{booking.time} • {booking.duration} minutes</Typography>
+                                    </Stack>
+                                  </Stack>
+                                </Paper>
+
+                                {booking.rating && (
+                                  <Paper variant="outlined" sx={{ p: 2, backgroundColor: theme.palette.success[50], borderRadius: 2 }}>
+                                    <Stack spacing={1}>
+                                      <Typography variant="subtitle2" color="text.secondary">
+                                        Your Feedback
+                                      </Typography>
+                                      <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Typography variant="h6" color="success.main">
+                                          {booking.rating}/5
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                          Rating
+                                        </Typography>
+                                      </Stack>
+                                      {booking.feedback && (
+                                        <Typography variant="body2">
+                                          "{booking.feedback}"
+                                        </Typography>
+                                      )}
+                                    </Stack>
+                                  </Paper>
+                                )}
+
+                                <Alert 
+                                  icon={<DoneAllIcon />}
+                                  severity="success"
+                                >
+                                  Session completed on {new Date(booking.completedAt).toLocaleDateString()}
+                                </Alert>
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item xs={12}>
+                        <Paper 
+                          sx={{ 
+                            p: 4,
+                            textAlign: 'center',
+                            borderRadius: 2,
+                            backgroundColor: 'white',
+                            borderStyle: 'dashed',
+                            borderColor: theme.palette.info.light
+                          }}
+                        >
+                          <Typography variant="h6" color="text.secondary">
+                            No completed sessions
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              </Stack>
             )}
           </Box>
         </Stack>
@@ -537,6 +1080,17 @@ export default function AthleteDashboard() {
                   }}
                 />
               </LocalizationProvider>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={bookingDetails.isVirtual}
+                    onChange={(e) => setBookingDetails({ ...bookingDetails, isVirtual: e.target.checked })}
+                  />
+                }
+                label="Virtual Session"
+              />
+
               <TextField
                 select
                 label="Select Time"
@@ -587,6 +1141,72 @@ export default function AthleteDashboard() {
               sx={{ minWidth: 100 }}
             >
               Book Session
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Completion Confirmation Dialog */}
+        <Dialog 
+          open={completionDialog} 
+          onClose={() => {
+            setCompletionDialog(false);
+            setSelectedBooking(null);
+            setRating(5);
+            setFeedback('');
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ pb: 2 }}>
+            Session Completion
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={3}>
+              <Alert severity="info">
+                Please rate your session and provide any feedback before confirming completion.
+              </Alert>
+              
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Rate your session (1-5 stars)
+                </Typography>
+                <Rating
+                  value={rating}
+                  onChange={(event, newValue) => {
+                    setRating(newValue);
+                  }}
+                  size="large"
+                />
+              </Box>
+
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Session Feedback (Optional)"
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Share your thoughts about the session..."
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, pt: 2 }}>
+            <Button 
+              onClick={() => {
+                setCompletionDialog(false);
+                setSelectedBooking(null);
+                setRating(5);
+                setFeedback('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={handleCompletionConfirm}
+            >
+              Confirm & Submit Feedback
             </Button>
           </DialogActions>
         </Dialog>
