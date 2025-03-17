@@ -18,7 +18,12 @@ import {
   useMediaQuery,
   CardActions,
   Button,
-  Stack
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField
 } from '@mui/material';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -29,6 +34,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AllInboxIcon from '@mui/icons-material/AllInbox';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
 export default function CoachDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -39,6 +45,9 @@ export default function CoachDashboard() {
   const [tabValue, setTabValue] = useState(0);
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const [emergencyCancelDialog, setEmergencyCancelDialog] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [emergencyReason, setEmergencyReason] = useState('');
 
   useEffect(() => {
     fetchBookings();
@@ -119,6 +128,36 @@ export default function CoachDashboard() {
       console.error('Failed to logout:', error);
       setError('Failed to logout');
       setLoading(false);
+    }
+  };
+
+  const handleEmergencyCancel = (booking) => {
+    setSelectedBooking(booking);
+    setEmergencyCancelDialog(true);
+  };
+
+  const handleEmergencyCancelConfirm = async () => {
+    if (!emergencyReason.trim()) {
+      setError('Please provide a reason for emergency cancellation');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'bookings', selectedBooking.id), {
+        status: 'cancelled',
+        cancellationType: 'emergency',
+        cancellationReason: emergencyReason,
+        cancelledAt: new Date().toISOString(),
+        cancelledBy: 'coach'
+      });
+
+      setEmergencyCancelDialog(false);
+      setSelectedBooking(null);
+      setEmergencyReason('');
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      setError('Failed to cancel booking');
     }
   };
 
@@ -348,36 +387,34 @@ export default function CoachDashboard() {
                             </Typography>
                           </Paper>
                         )}
+
+                        {booking.cancellationType === 'emergency' && (
+                          <Alert 
+                            severity="error"
+                            icon={<ErrorOutlineIcon />}
+                            sx={{ borderRadius: 1 }}
+                          >
+                            Emergency Cancellation: {booking.cancellationReason}
+                          </Alert>
+                        )}
                       </Stack>
                     </CardContent>
 
-                    {booking.status === 'pending' && (
-                      <CardActions sx={{ p: 3, pt: 0, gap: 2 }}>
-                        <Button 
-                          color="primary" 
-                          variant="contained"
+                    {booking.status === 'confirmed' && (
+                      <CardActions sx={{ p: 3, pt: 0 }}>
+                        <Button
                           fullWidth
-                          onClick={() => handleStatusUpdate(booking.id, 'confirmed')}
-                          sx={{ 
-                            borderRadius: 1,
-                            py: 1.5,
-                            fontSize: { xs: '1rem', sm: '1.1rem' }
-                          }}
-                        >
-                          Accept
-                        </Button>
-                        <Button 
-                          color="error"
                           variant="outlined"
-                          fullWidth
-                          onClick={() => handleStatusUpdate(booking.id, 'cancelled')}
+                          color="error"
+                          startIcon={<ErrorOutlineIcon />}
+                          onClick={() => handleEmergencyCancel(booking)}
                           sx={{ 
                             borderRadius: 1,
                             py: 1.5,
                             fontSize: { xs: '1rem', sm: '1.1rem' }
                           }}
                         >
-                          Decline
+                          Emergency Cancel
                         </Button>
                       </CardActions>
                     )}
@@ -409,6 +446,58 @@ export default function CoachDashboard() {
           </Box>
         </Stack>
       </Container>
+
+      {/* Emergency Cancellation Dialog */}
+      <Dialog 
+        open={emergencyCancelDialog} 
+        onClose={() => {
+          setEmergencyCancelDialog(false);
+          setSelectedBooking(null);
+          setEmergencyReason('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 2 }}>
+          Emergency Session Cancellation
+        </DialogTitle>
+        <DialogContent>
+          <Alert 
+            severity="warning" 
+            sx={{ mb: 3 }}
+          >
+            Please note that emergency cancellations should only be used for genuine emergencies.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Reason for Emergency Cancellation"
+            value={emergencyReason}
+            onChange={(e) => setEmergencyReason(e.target.value)}
+            error={Boolean(error && !emergencyReason)}
+            helperText={error && !emergencyReason ? 'Please provide a reason' : ''}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={() => {
+              setEmergencyCancelDialog(false);
+              setSelectedBooking(null);
+              setEmergencyReason('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={handleEmergencyCancelConfirm}
+          >
+            Confirm Cancellation
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 } 

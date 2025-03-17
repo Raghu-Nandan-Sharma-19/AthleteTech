@@ -1,17 +1,25 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
+import { Box, CircularProgress } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import theme from './theme/theme';
+
+// Import Roboto font
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
+
+// Component imports
 import Login from './components/Login';
 import NewSignup from './components/NewSignup';
 import AthleteDashboard from './components/AthleteDashboard';
 import PrivateRoute from './components/PrivateRoute';
-import CoachDashboard from './components/CoachDashboard';
 
 // Lazy load components
-const CoachDashboardLazy = React.lazy(() => import('./components/CoachDashboard'));
+const CoachDashboard = React.lazy(() => import('./components/CoachDashboard'));
 
 // Loading component
 const LoadingFallback = () => (
@@ -63,12 +71,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Import Roboto font
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
-
 function App() {
   return (
     <ErrorBoundary>
@@ -92,7 +94,7 @@ function App() {
                   path="/coach-dashboard"
                   element={
                     <PrivateRoute userType="coach">
-                      <CoachDashboardLazy />
+                      <CoachDashboard />
                     </PrivateRoute>
                   }
                 />

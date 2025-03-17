@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import {
   Box,
   Container,
@@ -514,17 +517,26 @@ export default function AthleteDashboard() {
           </DialogTitle>
           <DialogContent>
             <Stack spacing={3} sx={{ mt: 2 }}>
-              <TextField
-                type="date"
-                label="Select Date"
-                value={bookingDetails.date}
-                onChange={(e) => setBookingDetails({ ...bookingDetails, date: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-                inputProps={{
-                  min: new Date().toISOString().split('T')[0]
-                }}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Select Date"
+                  value={bookingDetails.date ? new Date(bookingDetails.date) : null}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      const formattedDate = newDate.toISOString().split('T')[0];
+                      setBookingDetails({ ...bookingDetails, date: formattedDate });
+                    }
+                  }}
+                  disablePast
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      error: Boolean(error && !bookingDetails.date),
+                      helperText: error && !bookingDetails.date ? 'Please select a date' : ''
+                    }
+                  }}
+                />
+              </LocalizationProvider>
               <TextField
                 select
                 label="Select Time"
