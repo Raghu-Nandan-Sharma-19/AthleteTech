@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@fontsource/roboto": "^5.2.5",
+    "firebase": "^11.4.0"
+  }
+}
