@@ -1,12 +1,17 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, CircularProgress, Box } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import theme from './theme';
+import theme from './theme/theme';
+import Login from './components/Login';
+import NewSignup from './components/NewSignup';
+import AthleteDashboard from './components/AthleteDashboard';
+import PrivateRoute from './components/PrivateRoute';
+import CoachDashboard from './components/CoachDashboard';
 
 // Lazy load components
-const Login = React.lazy(() => import('./components/Login'));
-const NewSignup = React.lazy(() => import('./components/NewSignup'));
+const CoachDashboardLazy = React.lazy(() => import('./components/CoachDashboard'));
 
 // Loading component
 const LoadingFallback = () => (
@@ -58,19 +63,11 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-function PrivateRoute({ children, allowedUserType }) {
-  const { currentUser, userType } = useAuth();
-
-  if (!currentUser) {
-    return <Navigate to="/login" />;
-  }
-
-  if (allowedUserType && userType !== allowedUserType) {
-    return <Navigate to="/" />;
-  }
-
-  return children;
-}
+// Import Roboto font
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 
 function App() {
   return (
@@ -81,22 +78,21 @@ function App() {
           <Router>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/login" replace />} />
-                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Login />} />
                 <Route path="/signup" element={<NewSignup />} />
                 <Route
-                  path="/coach-dashboard"
+                  path="/athlete-dashboard"
                   element={
-                    <PrivateRoute allowedUserType="coach">
-                      <div>Coach Dashboard (Coming Soon)</div>
+                    <PrivateRoute userType="athlete">
+                      <AthleteDashboard />
                     </PrivateRoute>
                   }
                 />
                 <Route
-                  path="/athlete-dashboard"
+                  path="/coach-dashboard"
                   element={
-                    <PrivateRoute allowedUserType="athlete">
-                      <div>Athlete Dashboard (Coming Soon)</div>
+                    <PrivateRoute userType="coach">
+                      <CoachDashboardLazy />
                     </PrivateRoute>
                   }
                 />
