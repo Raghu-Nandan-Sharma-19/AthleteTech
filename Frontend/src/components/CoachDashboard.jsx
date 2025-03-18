@@ -29,7 +29,7 @@ import {
   FormControlLabel,
   IconButton
 } from '@mui/material';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -42,6 +42,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function CoachDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -168,7 +169,7 @@ export default function CoachDashboard() {
     
     return bookings.filter(booking => {
       if (status === 'completed') {
-        // Only show sessions that are marked as completed by both coach and athlete
+        // Show sessions that are either marked as completed or pending_completion with both parties confirming
         return booking.status === 'completed' || 
                (booking.status === 'pending_completion' && booking.completedByAthlete && booking.completedByCoach);
       }
@@ -402,6 +403,16 @@ export default function CoachDashboard() {
           Session is scheduled and confirmed
         </Alert>
       );
+    }
+  };
+
+  const handleDeleteSession = async (booking) => {
+    try {
+      await deleteDoc(doc(db, 'bookings', booking.id));
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      setError('Failed to delete session');
     }
   };
 
@@ -950,6 +961,170 @@ export default function CoachDashboard() {
                   </Grid>
                 </Box>
               </Stack>
+            ) : tabValue === 3 ? (
+              <Grid container spacing={3}>
+                {filterBookings(bookings, 'completed').map((booking) => (
+                  <Grid item xs={12} sm={6} key={booking.id}>
+                    <Card elevation={1} sx={{ height: '100%', borderRadius: 2 }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Stack spacing={3}>
+                          {/* Session Header */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <Box>
+                              <Typography 
+                                variant="h5"
+                                sx={{ 
+                                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                                  fontWeight: 600,
+                                  mb: 1
+                                }}
+                              >
+                                Session with {booking.athleteName}
+                              </Typography>
+                              
+                              {booking.isVirtual && (
+                                <Chip
+                                  icon={<VideocamIcon />}
+                                  label="Virtual Session"
+                                  color="info"
+                                  size="small"
+                                  sx={{ 
+                                    borderRadius: '12px',
+                                    fontSize: '0.875rem'
+                                  }}
+                                />
+                              )}
+                            </Box>
+                            <IconButton 
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this completed session? This action cannot be undone.')) {
+                                  handleDeleteSession(booking);
+                                }
+                              }}
+                              color="error"
+                              size="small"
+                              sx={{ 
+                                '&:hover': { 
+                                  backgroundColor: theme.palette.error.light 
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+
+                          {/* Session Details */}
+                          <Paper 
+                            variant="outlined" 
+                            sx={{ 
+                              p: 2,
+                              backgroundColor: theme.palette.grey[50],
+                              borderRadius: 2
+                            }}
+                          >
+                            <Stack spacing={2}>
+                              <Stack direction="row" alignItems="center" spacing={2}>
+                                <CalendarMonthIcon color="primary" />
+                                <Typography sx={{ fontSize: '1rem' }}>
+                                  {new Date(booking.date).toLocaleDateString(undefined, {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </Typography>
+                              </Stack>
+
+                              <Stack direction="row" alignItems="center" spacing={2}>
+                                <AccessTimeIcon color="primary" />
+                                <Typography sx={{ fontSize: '1rem' }}>
+                                  {booking.time} • {booking.duration} minutes
+                                </Typography>
+                              </Stack>
+                            </Stack>
+                          </Paper>
+
+                          {/* Rating and Feedback */}
+                          <Paper 
+                            variant="outlined" 
+                            sx={{ 
+                              p: 2,
+                              backgroundColor: theme.palette.success[50],
+                              borderRadius: 2,
+                              borderColor: theme.palette.success[200]
+                            }}
+                          >
+                            <Stack spacing={2}>
+                              <Typography 
+                                variant="subtitle2" 
+                                color="text.secondary"
+                                sx={{ fontSize: '0.875rem' }}
+                              >
+                                Athlete Feedback
+                              </Typography>
+                              
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                <Typography 
+                                  variant="h6" 
+                                  color="success.main"
+                                  sx={{ fontSize: '1.25rem' }}
+                                >
+                                  {booking.rating}/5
+                                </Typography>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: '0.875rem' }}
+                                >
+                                  Rating
+                                </Typography>
+                              </Stack>
+
+                              {booking.feedback && (
+                                <Typography 
+                                  variant="body2"
+                                  sx={{ 
+                                    fontSize: '0.875rem',
+                                    fontStyle: 'italic',
+                                    color: theme.palette.text.secondary
+                                  }}
+                                >
+                                  "{booking.feedback}"
+                                </Typography>
+                              )}
+
+                              <Typography 
+                                variant="caption" 
+                                color="text.secondary"
+                                sx={{ fontSize: '0.75rem' }}
+                              >
+                                Completed on: {new Date(booking.completedAt).toLocaleDateString()}
+                              </Typography>
+                            </Stack>
+                          </Paper>
+
+                          {/* Completion Status Alert */}
+                          <Alert 
+                            icon={<DoneAllIcon />}
+                            severity="success"
+                          >
+                            Session completed successfully
+                          </Alert>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+                {filterBookings(bookings, 'completed').length === 0 && (
+                  <Grid item xs={12}>
+                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, backgroundColor: 'white', borderStyle: 'dashed' }}>
+                      <Typography variant="h6" color="text.secondary">
+                        No completed sessions
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
             ) : (
               <Grid container spacing={3}>
                 {filterBookings(bookings, ['all', 'pending', 'confirmed', 'completed', 'cancelled'][tabValue]).map((booking) => (

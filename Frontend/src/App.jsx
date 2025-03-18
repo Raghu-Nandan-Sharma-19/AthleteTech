@@ -24,12 +24,26 @@ const CoachDashboard = React.lazy(() => import('./components/CoachDashboard'));
 // Loading component
 const LoadingFallback = () => (
   <Box
-    display="flex"
-    justifyContent="center"
-    alignItems="center"
-    minHeight="100vh"
+    sx={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      zIndex: 9999
+    }}
   >
-    <CircularProgress />
+    <CircularProgress 
+      size={60}
+      thickness={4}
+      sx={{
+        color: theme => theme.palette.primary.main
+      }}
+    />
   </Box>
 );
 

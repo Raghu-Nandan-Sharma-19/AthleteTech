@@ -34,7 +34,7 @@ import {
   FormControlLabel,
   Switch
 } from '@mui/material';
-import { collection, getDocs, addDoc, query, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, query, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import SportsIcon from '@mui/icons-material/Sports';
 import WorkIcon from '@mui/icons-material/Work';
@@ -52,6 +52,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import Rating from '@mui/material/Rating';
 import StarIcon from '@mui/icons-material/Star';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function AthleteDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -323,6 +324,16 @@ export default function AthleteDashboard() {
     } catch (error) {
       console.error('Error marking session as completed:', error);
       setError('Failed to mark session as completed');
+    }
+  };
+
+  const handleDeleteSession = async (booking) => {
+    try {
+      await deleteDoc(doc(db, 'bookings', booking.id));
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      setError('Failed to delete session');
     }
   };
 
@@ -1086,6 +1097,28 @@ export default function AthleteDashboard() {
                                 >
                                   Session completed on {new Date(booking.completedAt).toLocaleDateString()}
                                 </Alert>
+
+                                {booking.status === 'completed' && (
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <Typography variant="h6">{booking.coachName}</Typography>
+                                    <IconButton 
+                                      onClick={() => {
+                                        if (window.confirm('Are you sure you want to delete this completed session? This action cannot be undone.')) {
+                                          handleDeleteSession(booking);
+                                        }
+                                      }}
+                                      color="error"
+                                      size="small"
+                                      sx={{ 
+                                        '&:hover': { 
+                                          backgroundColor: theme.palette.error.light 
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </Box>
+                                )}
                               </Stack>
                             </CardContent>
                           </Card>

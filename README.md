@@ -1,83 +1,77 @@
 # AthleteTech
 
-AthleteTech is a modern web application designed to connect coaches and athletes, providing a platform for training management, performance tracking, and communication.
+AthleteTech is a modern web application designed to connect coaches and athletes, facilitating training session management, virtual coaching, and performance tracking.
 
 ## Features
 
-- **Dual User System**
-  - Coach Portal
-  - Athlete Portal
-- **Authentication System**
-  - Secure login/signup
-  - Role-based access control
-  - Protected routes
-- **Modern UI/UX**
-  - Material-UI components
-  - Responsive design
-  - Clean and intuitive interface
+### For Athletes
+- Book training sessions with expert coaches
+- Choose between virtual and in-person sessions
+- Track session history and progress
+- Provide feedback and ratings for completed sessions
+- View upcoming sessions and their status
+- Confirm session completion and submit feedback
+- Receive real-time session status updates
+
+### For Coaches
+- Accept or decline training requests
+- Manage virtual sessions with Google Meet integration
+- Track upcoming and completed sessions
+- View new booking requests with notification badges
+- Mark sessions as completed
+- Emergency session cancellation with reason
+- Monitor athlete feedback and ratings
 
 ## Tech Stack
 
-- **Frontend**
-  - React.js
-  - Vite
-  - Material-UI
-  - React Router
-  - Firebase Authentication
-  - Firebase Firestore
+### Frontend
+- React.js with Vite
+- Material-UI for modern UI components
+- React Router for navigation
+- Context API for state management
+- Firebase SDK for authentication and database operations
 
-- **Backend**
-  - Node.js
-  - Express.js
-  - MongoDB
-  - Firebase
-
-## Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-- Firebase account
-- MongoDB installed locally or MongoDB Atlas account
+### Backend Services
+- Firebase Authentication for user management
+- Firebase Firestore for data storage
+- Firebase Cloud Functions for email notifications
+- Google Meet integration for virtual sessions
 
 ## Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- Firebase account
+- Google Cloud account (for Meet integration)
 
+### Installation
+
+1. Clone the repository
 ```bash
 git clone https://github.com/yourusername/AthleteTech.git
 cd AthleteTech
 ```
 
-### 2. Install Dependencies
-
+2. Install dependencies
 ```bash
 # Install Frontend dependencies
 cd Frontend
 npm install
 
-# Install Backend dependencies
-cd ../Backend
+# Install Cloud Functions dependencies
+cd ../functions
 npm install
 ```
 
-### 3. Firebase Setup
-
-1. Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Email/Password authentication:
-   - Go to Authentication > Sign-in method
-   - Enable Email/Password provider
-3. Create a Firestore database:
-   - Go to Firestore Database
-   - Create database in test mode
-4. Get your Firebase configuration:
-   - Go to Project Settings > General
-   - Scroll down to "Your apps"
-   - Click the web icon (</>)
-   - Register app and copy the config
-5. Update the Firebase config in `Frontend/src/config/firebase.js`:
+3. Firebase Setup
+- Create a new Firebase project
+- Enable Email/Password authentication
+- Create a Firestore database
+- Update Firebase config in `Frontend/src/config/firebase.js`:
 
 ```javascript
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "your-api-key",
   authDomain: "your-auth-domain",
   projectId: "your-project-id",
@@ -87,152 +81,22 @@ const firebaseConfig = {
 };
 ```
 
-### 4. Environment Variables
-
-Create a `.env` file in the Backend directory:
-
+4. Environment Variables
+Create a `.env` file in the Frontend directory:
 ```env
-PORT=3000
-MONGODB_URI=mongodb://localhost:27017/athleteTech
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-### 5. Start the Application
-
+5. Start the development server
 ```bash
-# Start Frontend (from Frontend directory)
+cd Frontend
 npm run dev
-
-# Start Backend (from Backend directory)
-npm start
 ```
-
-The application will be available at:
-- Frontend: http://localhost:5173
-- Backend: http://localhost:3000
-
-## How to Sign Up
-
-1. **Access the Signup Page**
-   - Navigate to http://localhost:5173/signup
-   - You'll see a multi-step signup form
-
-2. **Step 1: Account Type & Credentials**
-   - Choose between Coach or Athlete
-   - Enter your email address
-   - Create a strong password
-   - Confirm your password
-
-3. **Step 2: Basic Information**
-   - Enter your first name
-   - Enter your last name
-   - Provide your age
-   - Select your gender
-
-4. **Step 3: Sport Details**
-   - Select your primary sport
-   - Choose your experience level
-   - Describe your training goals
-
-5. **Complete Registration**
-   - Review your information
-   - Click "Sign Up" to create your account
-   - You'll be redirected to your dashboard
-
-## Test Credentials
-
-### Coach Accounts
-
-```
-1. Football Coach
-Email: coach.test@athletetech.com
-Password: Coach@123
-
-Profile:
-- First Name: John
-- Last Name: Smith
-- Age: 35
-- Gender: Male
-- Sport: Football
-- Experience: Professional
-- Goals: Train professional athletes and develop winning strategies
-
-2. Basketball Coach
-Email: basketball.coach@athletetech.com
-Password: Coach@123
-
-Profile:
-- First Name: Michael
-- Last Name: Brown
-- Age: 40
-- Gender: Male
-- Sport: Basketball
-- Experience: Professional
-- Goals: Develop elite basketball players and championship teams
-
-3. Tennis Coach
-Email: tennis.coach@athletetech.com
-Password: Coach@123
-
-Profile:
-- First Name: Emma
-- Last Name: Wilson
-- Age: 32
-- Gender: Female
-- Sport: Tennis
-- Experience: Advanced
-- Goals: Train junior players and prepare them for professional tournaments
-```
-
-### Athlete Accounts
-
-```
-1. Swimming Athlete
-Email: athlete.test@athletetech.com
-Password: Athlete@123
-
-Profile:
-- First Name: Sarah
-- Last Name: Johnson
-- Age: 22
-- Gender: Female
-- Sport: Swimming
-- Experience: Advanced
-- Goals: Improve performance and qualify for national championships
-
-2. Track Athlete
-Email: track.athlete@athletetech.com
-Password: Athlete@123
-
-Profile:
-- First Name: David
-- Last Name: Lee
-- Age: 19
-- Gender: Male
-- Sport: Athletics
-- Experience: Intermediate
-- Goals: Improve sprint times and qualify for regional championships
-
-3. Basketball Player
-Email: basketball.player@athletetech.com
-Password: Athlete@123
-
-Profile:
-- First Name: Lisa
-- Last Name: Chen
-- Age: 21
-- Gender: Female
-- Sport: Basketball
-- Experience: Advanced
-- Goals: Enhance shooting accuracy and team leadership skills
-```
-
-### Important Notes
-
-- All test accounts use the same password pattern for simplicity
-- These accounts are for testing purposes only
-- In production, use strong, unique passwords
-- Test accounts may be reset periodically
-- Do not store sensitive information in test accounts
 
 ## Project Structure
 
@@ -241,58 +105,133 @@ AthleteTech/
 ├── Frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── AthleteDashboard.jsx
+│   │   │   ├── CoachDashboard.jsx
 │   │   │   ├── Login.jsx
-│   │   │   └── Signup.jsx
+│   │   │   ├── NewSignup.jsx
+│   │   │   └── PrivateRoute.jsx
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx
+│   │   ├── services/
+│   │   │   └── emailService.js
 │   │   ├── config/
 │   │   │   └── firebase.js
+│   │   ├── theme/
+│   │   │   └── theme.js
 │   │   ├── App.jsx
 │   │   └── main.jsx
+│   ├── public/
+│   │   └── assets/
 │   └── package.json
 ├── Backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   ├── authController.js
+│   │   │   ├── bookingController.js
+│   │   │   └── userController.js
+│   │   ├── models/
+│   │   │   ├── Booking.js
+│   │   │   └── User.js
+│   │   ├── routes/
+│   │   │   ├── auth.js
+│   │   │   ├── bookings.js
+│   │   │   └── users.js
+│   │   ├── middleware/
+│   │   │   ├── auth.js
+│   │   │   └── validation.js
+│   │   ├── utils/
+│   │   │   ├── email.js
+│   │   │   └── helpers.js
+│   │   └── app.js
 │   ├── config/
-│   │   └── db.js
-│   ├── server.js
+│   │   └── firebase-admin.js
+│   └── package.json
+├── functions/
+│   ├── src/
+│   │   ├── auth/
+│   │   │   └── onUserCreated.js
+│   │   ├── bookings/
+│   │   │   ├── onBookingCreated.js
+│   │   │   ├── onBookingUpdated.js
+│   │   │   └── onBookingCancelled.js
+│   │   ├── notifications/
+│   │   │   ├── emailTemplates.js
+│   │   │   └── sendEmail.js
+│   │   └── index.js
+│   ├── config/
+│   │   └── serviceAccount.json
 │   └── package.json
 └── README.md
 ```
 
-## Authentication Flow
+## Session Management
 
-1. **User Registration**
-   - Users can register as either a coach or an athlete
-   - Email and password are required
-   - User type is stored in Firestore
+### Session States
+- **Pending**: Initial state when athlete requests a session
+- **Confirmed**: Coach has accepted the booking
+- **Pending Completion**: Either coach or athlete has marked as completed
+- **Completed**: Both parties have marked the session as complete
+- **Cancelled**: Session was cancelled (includes emergency cancellations)
 
-2. **User Login**
-   - Separate login flows for coaches and athletes
-   - JWT-based authentication
-   - Protected routes based on user type
+### Session Types
+- **In-Person**: Traditional face-to-face training sessions
+- **Virtual**: Online sessions conducted via Google Meet
 
-3. **Session Management**
-   - Persistent authentication state
-   - Automatic session recovery
-   - Secure logout functionality
+## Test Accounts
+
+### Coach Account
+```
+Email: coach.test@athletetech.com
+Password: Coach@123
+```
+
+### Athlete Account
+```
+Email: athlete.test@athletetech.com
+Password: Athlete@123
+```
+
+## Key Features Implementation
+
+### Authentication Flow
+1. **Signup Process**
+   - Multi-step registration form
+   - Account type selection (Coach/Athlete)
+   - Email verification
+   - Welcome email notification
+
+2. **Login Process**
+   - Role-based authentication
+   - Protected routes
+   - Persistent session management
+
+### Dashboard Features
+1. **Coach Dashboard**
+   - New booking requests section
+   - Upcoming sessions management
+   - Session completion workflow
+   - Virtual session link management
+   - Emergency cancellation capability
+
+2. **Athlete Dashboard**
+   - Session booking interface
+   - Session status tracking
+   - Feedback and rating system
+   - Virtual session access
+   - Session history view
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/YourFeature`)
+3. Commit your changes (`git commit -m 'Add YourFeature'`)
+4. Push to the branch (`git push origin feature/YourFeature`)
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Support
 
-For support, email support@athletetech.com or create an issue in the repository.
-
-## Acknowledgments
-
-- Material-UI for the component library
-- Firebase for authentication and database
-- MongoDB for data storage 
+For support, please create an issue in the repository or contact support@athletetech.com. 
