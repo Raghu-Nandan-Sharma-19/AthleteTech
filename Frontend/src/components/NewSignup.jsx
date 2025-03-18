@@ -450,6 +450,14 @@ export default function NewSignup() {
               fullWidth
               variant="text"
               size="small"
+              sx={{
+                textTransform: 'none',
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: 'transparent',
+                  textDecoration: 'underline'
+                }
+              }}
             >
               Already have an account? Sign In
             </Button>

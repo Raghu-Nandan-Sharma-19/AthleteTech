@@ -80,7 +80,8 @@ function App() {
           <Router>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
-                <Route path="/" element={<Login />} />
+                <Route path="/" element={<Navigate to="/login" />} />
+                <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<NewSignup />} />
                 <Route
                   path="/athlete-dashboard"
@@ -98,6 +99,8 @@ function App() {
                     </PrivateRoute>
                   }
                 />
+                {/* Catch all route for unknown paths */}
+                <Route path="*" element={<Navigate to="/login" />} />
               </Routes>
             </Suspense>
           </Router>
