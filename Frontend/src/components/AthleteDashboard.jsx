@@ -326,6 +326,139 @@ export default function AthleteDashboard() {
     }
   };
 
+  // Add the SessionStatusAlert component
+  const SessionStatusAlert = ({ booking }) => {
+    const isOngoing = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      const sessionEnd = new Date(sessionStart.getTime() + booking.duration * 60000);
+      return now >= sessionStart && now <= sessionEnd;
+    };
+
+    const isFinished = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      const sessionEnd = new Date(sessionStart.getTime() + booking.duration * 60000);
+      return now > sessionEnd;
+    };
+
+    const isUpcoming = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      return now < sessionStart;
+    };
+
+    if (booking.status === 'pending') {
+      return (
+        <Alert severity="warning" icon={<PendingIcon />}>
+          Waiting for coach to confirm this session
+        </Alert>
+      );
+    }
+
+    if (booking.status === 'pending_completion') {
+      if (!booking.completedByAthlete) {
+        return (
+          <Alert 
+            severity="info"
+            action={
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={() => handleMarkAsCompleted(booking)}
+                startIcon={<DoneAllIcon />}
+                size="small"
+              >
+                Confirm Completion
+              </Button>
+            }
+          >
+            Coach has marked this session as completed. Please confirm and provide feedback.
+          </Alert>
+        );
+      } else {
+        return (
+          <Alert severity="warning" icon={<PendingIcon />}>
+            Waiting for coach to confirm completion
+          </Alert>
+        );
+      }
+    }
+
+    if (booking.status === 'confirmed') {
+      if (isFinished()) {
+        return (
+          <Alert 
+            severity="info"
+            action={
+              <Button
+                color="primary"
+                variant="contained"
+                onClick={() => handleMarkAsCompleted(booking)}
+                startIcon={<DoneAllIcon />}
+                size="small"
+              >
+                Mark as Completed
+              </Button>
+            }
+          >
+            This session has finished. Please mark it as completed.
+          </Alert>
+        );
+      }
+
+      if (isOngoing()) {
+        return (
+          <Alert 
+            severity="warning"
+            icon={<AccessTimeIcon />}
+          >
+            Session is currently in progress
+          </Alert>
+        );
+      }
+
+      if (isUpcoming()) {
+        return (
+          <Alert severity="success">
+            Session is confirmed and scheduled
+          </Alert>
+        );
+      }
+    }
+
+    if (booking.status === 'completed') {
+      return (
+        <Alert 
+          icon={<DoneAllIcon />}
+          severity="success"
+        >
+          Session completed successfully
+        </Alert>
+      );
+    }
+
+    if (booking.status === 'cancelled') {
+      return (
+        <Alert severity="error">
+          Session cancelled
+          {booking.cancellationType === 'emergency' && (
+            <>
+              <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                Emergency Cancellation Reason:
+              </Typography>
+              <Typography variant="body2">
+                {booking.cancellationReason}
+              </Typography>
+            </>
+          )}
+        </Alert>
+      );
+    }
+
+    return null;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -711,67 +844,8 @@ export default function AthleteDashboard() {
                                   </Paper>
                                 )}
 
-                                {/* Session Status and Actions */}
-                                {booking.status === 'confirmed' && (
-                                  <Box sx={{ mt: 2 }}>
-                                    {isSessionFinished(booking) ? (
-                                      <Alert 
-                                        severity="info"
-                                        action={
-                                          <Button
-                                            color="primary"
-                                            variant="contained"
-                                            onClick={() => handleMarkAsCompleted(booking)}
-                                            startIcon={<DoneAllIcon />}
-                                            size="small"
-                                          >
-                                            Mark as Completed
-                                          </Button>
-                                        }
-                                      >
-                                        This session has finished. Please mark it as completed.
-                                      </Alert>
-                                    ) : (
-                                      <Alert severity="success">
-                                        Session is scheduled and confirmed
-                                      </Alert>
-                                    )}
-                                  </Box>
-                                )}
-
-                                {booking.status === 'pending_completion' && !booking.completedByAthlete && booking.completedByCoach && (
-                                  <Box sx={{ mt: 2 }}>
-                                    <Alert 
-                                      severity="info"
-                                      action={
-                                        <Button
-                                          color="primary"
-                                          variant="contained"
-                                          onClick={() => {
-                                            setSelectedBooking(booking);
-                                            setCompletionDialog(true);
-                                          }}
-                                          size="small"
-                                        >
-                                          Confirm & Rate
-                                        </Button>
-                                      }
-                                    >
-                                      Your coach has marked this session as completed. Please confirm and provide feedback.
-                                    </Alert>
-                                  </Box>
-                                )}
-
-                                {booking.status === 'pending_completion' && booking.completedByAthlete && !booking.completedByCoach && (
-                                  <Box sx={{ mt: 2 }}>
-                                    <Alert 
-                                      severity="warning"
-                                      icon={<PendingIcon />}
-                                    >
-                                      Waiting for coach to confirm completion
-                                    </Alert>
-                                  </Box>
-                                )}
+                                {/* Session Status */}
+                                <SessionStatusAlert booking={booking} />
                               </Stack>
                             </CardContent>
                           </Card>

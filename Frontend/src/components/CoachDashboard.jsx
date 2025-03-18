@@ -282,11 +282,11 @@ export default function CoachDashboard() {
     const now = new Date();
 
     return bookings.filter(booking => {
-      // Only include confirmed sessions that haven't started yet
+      // Include confirmed sessions that haven't been completed yet
       if (booking.status !== 'confirmed') return false;
 
-      const sessionDate = new Date(booking.date + ' ' + booking.time);
-      return sessionDate > now;
+      // Don't filter out sessions by time - keep them visible until completed
+      return true;
     }).sort((a, b) => {
       const dateA = new Date(a.date + ' ' + a.time);
       const dateB = new Date(b.date + ' ' + b.time);
@@ -341,6 +341,68 @@ export default function CoachDashboard() {
     const sessionDate = new Date(booking.date + ' ' + booking.time);
     const sessionEndTime = new Date(sessionDate.getTime() + booking.duration * 60000);
     return now > sessionEndTime;
+  };
+
+  const SessionStatusAlert = ({ booking }) => {
+    const isOngoing = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      const sessionEnd = new Date(sessionStart.getTime() + booking.duration * 60000);
+      return now >= sessionStart && now <= sessionEnd;
+    };
+
+    const isFinished = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      const sessionEnd = new Date(sessionStart.getTime() + booking.duration * 60000);
+      return now > sessionEnd;
+    };
+
+    const isUpcoming = () => {
+      const now = new Date();
+      const sessionStart = new Date(booking.date + ' ' + booking.time);
+      return now < sessionStart;
+    };
+
+    if (isFinished()) {
+      return (
+        <Alert 
+          severity="info"
+          action={
+            <Button
+              color="primary"
+              variant="contained"
+              onClick={() => handleMarkAsCompleted(booking)}
+              startIcon={<DoneAllIcon />}
+              size="small"
+            >
+              Mark as Completed
+            </Button>
+          }
+        >
+          This session has finished. Please mark it as completed.
+        </Alert>
+      );
+    }
+
+    if (isOngoing()) {
+      return (
+        <Alert 
+          severity="warning"
+          icon={<AccessTimeIcon />}
+        >
+          Session is currently in progress
+        </Alert>
+      );
+    }
+
+    if (isUpcoming()) {
+      return (
+        <Alert severity="success">
+          Session is scheduled and confirmed
+        </Alert>
+      );
+    }
   };
 
   if (loading) {
@@ -754,22 +816,7 @@ export default function CoachDashboard() {
                     {getUpcomingSessions(bookings).length > 0 ? (
                       getUpcomingSessions(bookings).map((booking) => (
                         <Grid item xs={12} sm={6} key={booking.id}>
-                          <Card 
-                            elevation={1}
-                            sx={{ 
-                              height: '100%',
-                              borderRadius: 2,
-                              transition: 'all 0.2s ease',
-                              position: 'relative',
-                              overflow: 'visible',
-                              border: `1px solid ${theme.palette.success.light}`,
-                              '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: 3
-                              }
-                            }}
-                          >
-                            {/* Card Content */}
+                          <Card elevation={1} sx={{ height: '100%', borderRadius: 2 }}>
                             <CardContent sx={{ p: 3 }}>
                               <Stack spacing={3}>
                                 {/* Session Header */}
@@ -830,115 +877,30 @@ export default function CoachDashboard() {
                                   </Stack>
                                 </Paper>
 
-                                {/* Meet Link Section */}
-                                {booking.isVirtual && (
+                                {/* Virtual Session Link */}
+                                {booking.isVirtual && booking.meetLink && (
                                   <Paper 
                                     variant="outlined" 
                                     sx={{ 
                                       p: 2,
-                                      backgroundColor: theme.palette.primary[50],
+                                      backgroundColor: theme.palette.info[50],
                                       borderRadius: 2,
-                                      borderColor: theme.palette.primary[200]
+                                      borderColor: theme.palette.info[200]
                                     }}
                                   >
                                     <Stack spacing={2}>
-                                      <Stack direction="row" alignItems="center" spacing={2}>
-                                        <VideocamIcon color="primary" />
-                                        <Typography sx={{ flexGrow: 1 }}>
-                                          Virtual Session
-                                        </Typography>
-                                      </Stack>
-
-                                      {booking.meetLink ? (
-                                        <Stack direction="row" alignItems="center" spacing={2}>
-                                          <Link 
-                                            href={booking.meetLink} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            sx={{ 
-                                              flexGrow: 1,
-                                              color: theme.palette.primary.main,
-                                              textDecoration: 'none',
-                                              '&:hover': {
-                                                textDecoration: 'underline'
-                                              }
-                                            }}
-                                          >
-                                            Join Google Meet
-                                          </Link>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => copyMeetLink(booking.meetLink)}
-                                            title="Copy link"
-                                            sx={{ 
-                                              backgroundColor: 'white',
-                                              '&:hover': {
-                                                backgroundColor: theme.palette.grey[100]
-                                              }
-                                            }}
-                                          >
-                                            <ContentCopyIcon fontSize="small" />
-                                          </IconButton>
-                                        </Stack>
-                                      ) : (
-                                        <Button
-                                          variant="contained"
-                                          color="primary"
-                                          fullWidth
-                                          onClick={() => {
-                                            setSelectedBooking(booking);
-                                            setMeetLinkDialog(true);
-                                          }}
-                                          sx={{ 
-                                            borderRadius: 1,
-                                            py: 1
-                                          }}
-                                        >
-                                          Add Meet Link
-                                        </Button>
-                                      )}
+                                      <Typography variant="subtitle2" color="text.secondary">
+                                        Virtual Session Link
+                                      </Typography>
+                                      <Link href={booking.meetLink} target="_blank" rel="noopener">
+                                        {booking.meetLink}
+                                      </Link>
                                     </Stack>
                                   </Paper>
                                 )}
 
-                                {/* Session Status and Actions */}
-                                {booking.status === 'confirmed' && (
-                                  <Box sx={{ mt: 2 }}>
-                                    {isSessionFinished(booking) ? (
-                                      <Alert 
-                                        severity="info"
-                                        action={
-                                          <Button
-                                            color="primary"
-                                            variant="contained"
-                                            onClick={() => handleMarkAsCompleted(booking)}
-                                            startIcon={<DoneAllIcon />}
-                                            size="small"
-                                          >
-                                            Mark as Completed
-                                          </Button>
-                                        }
-                                      >
-                                        This session has finished. Please mark it as completed.
-                                      </Alert>
-                                    ) : (
-                                      <Alert severity="success">
-                                        Session is scheduled and confirmed
-                                      </Alert>
-                                    )}
-                                  </Box>
-                                )}
-
-                                {booking.status === 'pending_completion' && !booking.completedByAthlete && (
-                                  <Box sx={{ mt: 2 }}>
-                                    <Alert 
-                                      severity="warning"
-                                      icon={<PendingIcon />}
-                                    >
-                                      Waiting for athlete to confirm completion and provide feedback
-                                    </Alert>
-                                  </Box>
-                                )}
+                                {/* Session Status */}
+                                <SessionStatusAlert booking={booking} />
                               </Stack>
                             </CardContent>
 
