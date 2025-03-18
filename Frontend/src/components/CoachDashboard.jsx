@@ -27,9 +27,15 @@ import {
   Link,
   Switch,
   FormControlLabel,
-  IconButton
+  IconButton,
+  LinearProgress,
+  Avatar,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Divider
 } from '@mui/material';
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -43,6 +49,12 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import DeleteIcon from '@mui/icons-material/Delete';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import PeopleIcon from '@mui/icons-material/People';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import StarIcon from '@mui/icons-material/Star';
 
 export default function CoachDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -60,9 +72,25 @@ export default function CoachDashboard() {
   const [meetLink, setMeetLink] = useState('');
   const [meetLinkDialog, setMeetLinkDialog] = useState(false);
   const [meetLinkInput, setMeetLinkInput] = useState('');
+  const [athletes, setAthletes] = useState([]);
+  const [analytics, setAnalytics] = useState({
+    totalSessions: 0,
+    completionRate: 0,
+    averageRating: 0,
+    activeAthletes: 0
+  });
+
+  // New states for analytics
+  const [performanceData, setPerformanceData] = useState([]);
+  const [selectedAthlete, setSelectedAthlete] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [completedSessions, setCompletedSessions] = useState([]);
 
   useEffect(() => {
     fetchBookings();
+    fetchAthletes();
+    fetchAnalytics();
+    fetchCompletedSessions();
   }, []);
 
   const fetchBookings = async () => {
@@ -91,6 +119,107 @@ export default function CoachDashboard() {
       console.error('Error fetching bookings:', error);
       setError('Failed to load bookings');
       setLoading(false);
+    }
+  };
+
+  const fetchAthletes = async () => {
+    try {
+      const athletesQuery = query(
+        collection(db, 'athletes'),
+        where('coachId', '==', currentUser.uid)
+      );
+      const snapshot = await getDocs(athletesQuery);
+      const athletesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAthletes(athletesData);
+    } catch (error) {
+      console.error('Error fetching athletes:', error);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      // Fetch last 6 months of performance data
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const sessionsQuery = query(
+        collection(db, 'bookings'),
+        where('coachId', '==', currentUser.uid),
+        where('date', '>=', sixMonthsAgo.toISOString()),
+        orderBy('date', 'desc')
+      );
+
+      const snapshot = await getDocs(sessionsQuery);
+      const sessions = snapshot.docs.map(doc => doc.data());
+
+      // Calculate analytics
+      const totalSessions = sessions.length;
+      const completedSessions = sessions.filter(s => s.status === 'completed').length;
+      const completionRate = (completedSessions / totalSessions) * 100;
+      const ratings = sessions.filter(s => s.rating).map(s => s.rating);
+      const averageRating = ratings.length > 0 
+        ? ratings.reduce((acc, curr) => acc + curr, 0) / ratings.length 
+        : 0;
+
+      setAnalytics({
+        totalSessions,
+        completionRate,
+        averageRating,
+        activeAthletes: athletes.length
+      });
+
+      // Prepare performance data for chart
+      const performanceByMonth = sessions.reduce((acc, session) => {
+        const month = new Date(session.date).toLocaleString('default', { month: 'short' });
+        if (!acc[month]) {
+          acc[month] = {
+            month,
+            sessions: 0,
+            completedSessions: 0
+          };
+        }
+        acc[month].sessions++;
+        if (session.status === 'completed') {
+          acc[month].completedSessions++;
+        }
+        return acc;
+      }, {});
+
+      setPerformanceData(Object.values(performanceByMonth));
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+  };
+
+  const fetchCompletedSessions = async () => {
+    try {
+      const completedQuery = query(
+        collection(db, 'bookings'),
+        where('coachId', '==', currentUser.uid),
+        where('status', '==', 'completed'),
+        limit(10)
+      );
+      const snapshot = await getDocs(completedQuery);
+      const completedData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort the data on the client side instead
+      const sortedData = completedData.sort((a, b) => {
+        const dateA = new Date(a.completedAt || a.date);
+        const dateB = new Date(b.completedAt || b.date);
+        return dateB - dateA; // Sort in descending order (most recent first)
+      });
+      
+      setCompletedSessions(sortedData);
+      setError(''); // Clear any existing errors
+    } catch (error) {
+      console.error('Error fetching completed sessions:', error);
+      setError('Failed to fetch completed sessions');
     }
   };
 
@@ -416,6 +545,272 @@ export default function CoachDashboard() {
     }
   };
 
+  // Analytics Dashboard Component
+  const AnalyticsDashboard = () => (
+    <Box sx={{ mt: 4 }}>
+      <Grid container spacing={3}>
+        {/* Analytics Cards */}
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <BarChartIcon color="primary" />
+                <Box>
+                  <Typography variant="h6">{analytics.totalSessions}</Typography>
+                  <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <DoneAllIcon color="success" />
+                <Box>
+                  <Typography variant="h6">{analytics.completionRate.toFixed(1)}%</Typography>
+                  <Typography variant="body2" color="text.secondary">Completion Rate</Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <PeopleIcon color="info" />
+                <Box>
+                  <Typography variant="h6">{analytics.activeAthletes}</Typography>
+                  <Typography variant="body2" color="text.secondary">Active Athletes</Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <TrendingUpIcon color="secondary" />
+                <Box>
+                  <Typography variant="h6">{analytics.averageRating.toFixed(1)}/5</Typography>
+                  <Typography variant="body2" color="text.secondary">Average Rating</Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Performance Chart */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>Performance Overview</Typography>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={performanceData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <RechartsTooltip />
+                <Line type="monotone" dataKey="sessions" stroke="#8884d8" name="Total Sessions" />
+                <Line type="monotone" dataKey="completedSessions" stroke="#82ca9d" name="Completed Sessions" />
+              </LineChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
+  // Athletes List Component
+  const AthletesList = () => (
+    <Box sx={{ mt: 4 }}>
+      <Grid container spacing={3}>
+        {athletes.map((athlete) => (
+          <Grid item xs={12} sm={6} md={4} key={athlete.id}>
+            <Card>
+              <CardContent>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar src={athlete.photoURL} alt={athlete.name}>
+                    {athlete.name?.charAt(0)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">{athlete.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {athlete.sport || 'Sport not specified'}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Box sx={{ mt: 2 }}>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={athlete.progressPercentage || 0} 
+                    sx={{ mb: 1 }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    Progress: {athlete.progressPercentage || 0}%
+                  </Typography>
+                </Box>
+              </CardContent>
+              <CardActions>
+                <Button 
+                  size="small" 
+                  startIcon={<FitnessCenterIcon />}
+                  onClick={() => navigate(`/athlete/${athlete.id}`)}
+                >
+                  View Progress
+                </Button>
+                <Button 
+                  size="small" 
+                  startIcon={<CalendarMonthIcon />}
+                  onClick={() => navigate(`/schedule/${athlete.id}`)}
+                >
+                  Schedule Session
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+
+  // Completed Sessions Component
+  const CompletedSessions = () => {
+    useEffect(() => {
+      fetchCompletedSessions();
+    }, []);
+
+    if (loading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
+          Recently Completed Sessions
+        </Typography>
+        <Grid container spacing={3}>
+          {completedSessions && completedSessions.length > 0 ? (
+            completedSessions.map((session) => (
+              <Grid item xs={12} sm={6} md={4} key={session.id}>
+                <Card 
+                  elevation={1}
+                  sx={{ 
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative'
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Typography variant="h6" component="div">
+                        {session.athleteName}
+                      </Typography>
+                      <Chip
+                        icon={<DoneAllIcon />}
+                        label="Completed"
+                        color="success"
+                        size="small"
+                      />
+                    </Box>
+                    
+                    <Stack spacing={2}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CalendarMonthIcon color="primary" fontSize="small" />
+                        <Typography variant="body2">
+                          {new Date(session.date).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AccessTimeIcon color="primary" fontSize="small" />
+                        <Typography variant="body2">
+                          {session.time} ({session.duration} mins)
+                        </Typography>
+                      </Box>
+
+                      {session.isVirtual && (
+                        <Chip
+                          icon={<VideocamIcon />}
+                          label="Virtual Session"
+                          size="small"
+                          color="info"
+                          sx={{ alignSelf: 'flex-start' }}
+                        />
+                      )}
+
+                      {session.rating && (
+                        <Paper 
+                          elevation={0}
+                          sx={{ 
+                            p: 1.5,
+                            bgcolor: 'success.light',
+                            color: 'success.contrastText',
+                            borderRadius: 1,
+                            mt: 1
+                          }}
+                        >
+                          <Stack spacing={1}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <StarIcon color="inherit" fontSize="small" />
+                              <Typography variant="body2" fontWeight="medium">
+                                Rating: {session.rating}/5
+                              </Typography>
+                            </Box>
+                            {session.feedback && (
+                              <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                                "{session.feedback}"
+                              </Typography>
+                            )}
+                          </Stack>
+                        </Paper>
+                      )}
+                    </Stack>
+                  </CardContent>
+                  <CardActions sx={{ mt: 'auto', p: 2, pt: 0 }}>
+                    <Button 
+                      size="small"
+                      startIcon={<FitnessCenterIcon />}
+                      onClick={() => navigate(`/session-details/${session.id}`)}
+                    >
+                      View Details
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))
+          ) : (
+            <Grid item xs={12}>
+              <Paper 
+                sx={{ 
+                  p: 4, 
+                  textAlign: 'center',
+                  bgcolor: 'grey.50',
+                  border: '1px dashed',
+                  borderColor: 'grey.300'
+                }}
+              >
+                <Typography variant="h6" color="text.secondary">
+                  No completed sessions yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Completed sessions will appear here
+                </Typography>
+              </Paper>
+            </Grid>
+          )}
+        </Grid>
+      </Box>
+    );
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -496,42 +891,23 @@ export default function CoachDashboard() {
             <Tabs
               value={tabValue}
               onChange={(e, newValue) => setTabValue(newValue)}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{ borderBottom: 1, borderColor: 'divider' }}
+              variant={isSmallScreen ? "scrollable" : "fullWidth"}
+              scrollButtons={isSmallScreen ? "auto" : false}
+              sx={{ mb: 3 }}
             >
-              <Tab 
-                icon={<AllInboxIcon />} 
-                label="ALL BOOKINGS" 
-                iconPosition="start"
-              />
-              <Tab 
-                icon={<PendingIcon />} 
-                label="PENDING" 
-                iconPosition="start"
-              />
-              <Tab 
-                icon={<CheckCircleIcon />} 
-                label="CONFIRMED" 
-                iconPosition="start"
-              />
-              <Tab 
-                icon={<DoneAllIcon />} 
-                label="COMPLETED" 
-                iconPosition="start"
-              />
-              <Tab 
-                icon={<CancelIcon />} 
-                label="CANCELLED" 
-                iconPosition="start"
-              />
+              <Tab icon={<BarChartIcon />} label="Analytics" />
+              <Tab icon={<PeopleIcon />} label="Athletes" />
+              <Tab icon={<CalendarMonthIcon />} label="Sessions" />
+              <Tab icon={<DoneAllIcon />} label="Completed" />
             </Tabs>
           </Box>
 
           {/* Bookings Grid */}
           <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
-            {tabValue === 0 ? (
-              <Stack spacing={4}>
+            {tabValue === 0 && <AnalyticsDashboard />}
+            {tabValue === 1 && <AthletesList />}
+            {tabValue === 2 && (
+              <>
                 {/* New Bookings Section */}
                 <Box>
                   <Typography 
@@ -960,320 +1336,9 @@ export default function CoachDashboard() {
                     )}
                   </Grid>
                 </Box>
-              </Stack>
-            ) : tabValue === 3 ? (
-              <Grid container spacing={3}>
-                {filterBookings(bookings, 'completed').map((booking) => (
-                  <Grid item xs={12} sm={6} key={booking.id}>
-                    <Card elevation={1} sx={{ height: '100%', borderRadius: 2 }}>
-                      <CardContent sx={{ p: 3 }}>
-                        <Stack spacing={3}>
-                          {/* Session Header */}
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <Box>
-                              <Typography 
-                                variant="h5"
-                                sx={{ 
-                                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                                  fontWeight: 600,
-                                  mb: 1
-                                }}
-                              >
-                                Session with {booking.athleteName}
-                              </Typography>
-                              
-                              {booking.isVirtual && (
-                                <Chip
-                                  icon={<VideocamIcon />}
-                                  label="Virtual Session"
-                                  color="info"
-                                  size="small"
-                                  sx={{ 
-                                    borderRadius: '12px',
-                                    fontSize: '0.875rem'
-                                  }}
-                                />
-                              )}
-                            </Box>
-                            <IconButton 
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this completed session? This action cannot be undone.')) {
-                                  handleDeleteSession(booking);
-                                }
-                              }}
-                              color="error"
-                              size="small"
-                              sx={{ 
-                                '&:hover': { 
-                                  backgroundColor: theme.palette.error.light 
-                                }
-                              }}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-
-                          {/* Session Details */}
-                          <Paper 
-                            variant="outlined" 
-                            sx={{ 
-                              p: 2,
-                              backgroundColor: theme.palette.grey[50],
-                              borderRadius: 2
-                            }}
-                          >
-                            <Stack spacing={2}>
-                              <Stack direction="row" alignItems="center" spacing={2}>
-                                <CalendarMonthIcon color="primary" />
-                                <Typography sx={{ fontSize: '1rem' }}>
-                                  {new Date(booking.date).toLocaleDateString(undefined, {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </Typography>
-                              </Stack>
-
-                              <Stack direction="row" alignItems="center" spacing={2}>
-                                <AccessTimeIcon color="primary" />
-                                <Typography sx={{ fontSize: '1rem' }}>
-                                  {booking.time} • {booking.duration} minutes
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                          </Paper>
-
-                          {/* Rating and Feedback */}
-                          <Paper 
-                            variant="outlined" 
-                            sx={{ 
-                              p: 2,
-                              backgroundColor: theme.palette.success[50],
-                              borderRadius: 2,
-                              borderColor: theme.palette.success[200]
-                            }}
-                          >
-                            <Stack spacing={2}>
-                              <Typography 
-                                variant="subtitle2" 
-                                color="text.secondary"
-                                sx={{ fontSize: '0.875rem' }}
-                              >
-                                Athlete Feedback
-                              </Typography>
-                              
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <Typography 
-                                  variant="h6" 
-                                  color="success.main"
-                                  sx={{ fontSize: '1.25rem' }}
-                                >
-                                  {booking.rating}/5
-                                </Typography>
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary"
-                                  sx={{ fontSize: '0.875rem' }}
-                                >
-                                  Rating
-                                </Typography>
-                              </Stack>
-
-                              {booking.feedback && (
-                                <Typography 
-                                  variant="body2"
-                                  sx={{ 
-                                    fontSize: '0.875rem',
-                                    fontStyle: 'italic',
-                                    color: theme.palette.text.secondary
-                                  }}
-                                >
-                                  "{booking.feedback}"
-                                </Typography>
-                              )}
-
-                              <Typography 
-                                variant="caption" 
-                                color="text.secondary"
-                                sx={{ fontSize: '0.75rem' }}
-                              >
-                                Completed on: {new Date(booking.completedAt).toLocaleDateString()}
-                              </Typography>
-                            </Stack>
-                          </Paper>
-
-                          {/* Completion Status Alert */}
-                          <Alert 
-                            icon={<DoneAllIcon />}
-                            severity="success"
-                          >
-                            Session completed successfully
-                          </Alert>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-                {filterBookings(bookings, 'completed').length === 0 && (
-                  <Grid item xs={12}>
-                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, backgroundColor: 'white', borderStyle: 'dashed' }}>
-                      <Typography variant="h6" color="text.secondary">
-                        No completed sessions
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                )}
-              </Grid>
-            ) : (
-              <Grid container spacing={3}>
-                {filterBookings(bookings, ['all', 'pending', 'confirmed', 'completed', 'cancelled'][tabValue]).map((booking) => (
-                  <Grid item xs={12} sm={6} key={booking.id}>
-                    <Card elevation={1} sx={{ height: '100%', borderRadius: 2 }}>
-                      <CardContent sx={{ p: 3 }}>
-                        <Stack spacing={3}>
-                          {/* Session Header */}
-                          <Box>
-                            <Typography 
-                              variant="h5"
-                              sx={{ 
-                                fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                                fontWeight: 600,
-                                mb: 1
-                              }}
-                            >
-                              Session with {booking.athleteName}
-                            </Typography>
-                            
-                            {booking.isVirtual && (
-                              <Chip
-                                icon={<VideocamIcon />}
-                                label="Virtual Session"
-                                color="info"
-                                size="small"
-                                sx={{ 
-                                  borderRadius: '12px',
-                                  fontSize: '0.875rem'
-                                }}
-                              />
-                            )}
-                          </Box>
-
-                          {/* Session Details */}
-                          <Paper 
-                            variant="outlined" 
-                            sx={{ 
-                              p: 2,
-                              backgroundColor: theme.palette.grey[50],
-                              borderRadius: 2
-                            }}
-                          >
-                            <Stack spacing={2}>
-                              <Stack direction="row" alignItems="center" spacing={2}>
-                                <CalendarMonthIcon color="primary" />
-                                <Typography sx={{ fontSize: '1rem' }}>
-                                  {new Date(booking.date).toLocaleDateString(undefined, {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </Typography>
-                              </Stack>
-
-                              <Stack direction="row" alignItems="center" spacing={2}>
-                                <AccessTimeIcon color="primary" />
-                                <Typography sx={{ fontSize: '1rem' }}>
-                                  {booking.time} • {booking.duration} minutes
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                          </Paper>
-
-                          {/* Rating and Feedback - Only show for completed sessions */}
-                          {booking.status === 'completed' && (
-                            <Paper 
-                              variant="outlined" 
-                              sx={{ 
-                                p: 2,
-                                backgroundColor: theme.palette.success[50],
-                                borderRadius: 2,
-                                borderColor: theme.palette.success[200]
-                              }}
-                            >
-                              <Stack spacing={2}>
-                                <Typography 
-                                  variant="subtitle2" 
-                                  color="text.secondary"
-                                  sx={{ fontSize: '0.875rem' }}
-                                >
-                                  Athlete Feedback
-                                </Typography>
-                                
-                                <Stack direction="row" alignItems="center" spacing={1}>
-                                  <Typography 
-                                    variant="h6" 
-                                    color="success.main"
-                                    sx={{ fontSize: '1.25rem' }}
-                                  >
-                                    {booking.rating}/5
-                                  </Typography>
-                                  <Typography 
-                                    variant="body2" 
-                                    color="text.secondary"
-                                    sx={{ fontSize: '0.875rem' }}
-                                  >
-                                    Rating
-                                  </Typography>
-                                </Stack>
-
-                                {booking.feedback && (
-                                  <Typography 
-                                    variant="body2"
-                                    sx={{ 
-                                      fontSize: '0.875rem',
-                                      fontStyle: 'italic',
-                                      color: theme.palette.text.secondary
-                                    }}
-                                  >
-                                    "{booking.feedback}"
-                                  </Typography>
-                                )}
-
-                                <Typography 
-                                  variant="caption" 
-                                  color="text.secondary"
-                                  sx={{ fontSize: '0.75rem' }}
-                                >
-                                  Completed on: {new Date(booking.completedAt).toLocaleDateString()}
-                                </Typography>
-                              </Stack>
-                            </Paper>
-                          )}
-
-                          {/* Completion Status Alert */}
-                          <Alert 
-                            icon={<DoneAllIcon />}
-                            severity="success"
-                          >
-                            Session completed successfully
-                          </Alert>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-                {filterBookings(bookings, ['all', 'pending', 'confirmed', 'completed', 'cancelled'][tabValue]).length === 0 && (
-                  <Grid item xs={12}>
-                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, backgroundColor: 'white', borderStyle: 'dashed' }}>
-                      <Typography variant="h6" color="text.secondary">
-                        No {['all', 'pending', 'confirmed', 'completed', 'cancelled'][tabValue]} sessions
-                      </Typography>
-                    </Paper>
-                  </Grid>
-                )}
-              </Grid>
+              </>
             )}
+            {tabValue === 3 && <CompletedSessions />}
           </Box>
         </Stack>
       </Container>
