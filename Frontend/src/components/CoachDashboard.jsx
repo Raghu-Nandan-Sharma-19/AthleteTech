@@ -50,7 +50,6 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import PeopleIcon from '@mui/icons-material/People';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -72,12 +71,10 @@ export default function CoachDashboard() {
   const [meetLink, setMeetLink] = useState('');
   const [meetLinkDialog, setMeetLinkDialog] = useState(false);
   const [meetLinkInput, setMeetLinkInput] = useState('');
-  const [athletes, setAthletes] = useState([]);
   const [analytics, setAnalytics] = useState({
     totalSessions: 0,
     completionRate: 0,
-    averageRating: 0,
-    activeAthletes: 0
+    averageRating: 0
   });
 
   // New states for analytics
@@ -88,7 +85,6 @@ export default function CoachDashboard() {
 
   useEffect(() => {
     fetchBookings();
-    fetchAthletes();
     fetchAnalytics();
     fetchCompletedSessions();
   }, []);
@@ -122,26 +118,8 @@ export default function CoachDashboard() {
     }
   };
 
-  const fetchAthletes = async () => {
-    try {
-      const athletesQuery = query(
-        collection(db, 'athletes'),
-        where('coachId', '==', currentUser.uid)
-      );
-      const snapshot = await getDocs(athletesQuery);
-      const athletesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAthletes(athletesData);
-    } catch (error) {
-      console.error('Error fetching athletes:', error);
-    }
-  };
-
   const fetchAnalytics = async () => {
     try {
-      // Fetch last 6 months of performance data
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
@@ -155,7 +133,6 @@ export default function CoachDashboard() {
       const snapshot = await getDocs(sessionsQuery);
       const sessions = snapshot.docs.map(doc => doc.data());
 
-      // Calculate analytics
       const totalSessions = sessions.length;
       const completedSessions = sessions.filter(s => s.status === 'completed').length;
       const completionRate = (completedSessions / totalSessions) * 100;
@@ -167,8 +144,7 @@ export default function CoachDashboard() {
       setAnalytics({
         totalSessions,
         completionRate,
-        averageRating,
-        activeAthletes: athletes.length
+        averageRating
       });
 
       // Prepare performance data for chart
@@ -580,19 +556,6 @@ export default function CoachDashboard() {
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <PeopleIcon color="info" />
-                <Box>
-                  <Typography variant="h6">{analytics.activeAthletes}</Typography>
-                  <Typography variant="body2" color="text.secondary">Active Athletes</Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Stack direction="row" spacing={2} alignItems="center">
                 <TrendingUpIcon color="secondary" />
                 <Box>
                   <Typography variant="h6">{analytics.averageRating.toFixed(1)}/5</Typography>
@@ -619,59 +582,6 @@ export default function CoachDashboard() {
             </ResponsiveContainer>
           </Paper>
         </Grid>
-      </Grid>
-    </Box>
-  );
-
-  // Athletes List Component
-  const AthletesList = () => (
-    <Box sx={{ mt: 4 }}>
-      <Grid container spacing={3}>
-        {athletes.map((athlete) => (
-          <Grid item xs={12} sm={6} md={4} key={athlete.id}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar src={athlete.photoURL} alt={athlete.name}>
-                    {athlete.name?.charAt(0)}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h6">{athlete.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {athlete.sport || 'Sport not specified'}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Box sx={{ mt: 2 }}>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={athlete.progressPercentage || 0} 
-                    sx={{ mb: 1 }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    Progress: {athlete.progressPercentage || 0}%
-                  </Typography>
-                </Box>
-              </CardContent>
-              <CardActions>
-                <Button 
-                  size="small" 
-                  startIcon={<FitnessCenterIcon />}
-                  onClick={() => navigate(`/athlete/${athlete.id}`)}
-                >
-                  View Progress
-                </Button>
-                <Button 
-                  size="small" 
-                  startIcon={<CalendarMonthIcon />}
-                  onClick={() => navigate(`/schedule/${athlete.id}`)}
-                >
-                  Schedule Session
-                </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
       </Grid>
     </Box>
   );
@@ -896,7 +806,6 @@ export default function CoachDashboard() {
               sx={{ mb: 3 }}
             >
               <Tab icon={<BarChartIcon />} label="Analytics" />
-              <Tab icon={<PeopleIcon />} label="Athletes" />
               <Tab icon={<CalendarMonthIcon />} label="Sessions" />
               <Tab icon={<DoneAllIcon />} label="Completed" />
             </Tabs>
@@ -905,8 +814,7 @@ export default function CoachDashboard() {
           {/* Bookings Grid */}
           <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
             {tabValue === 0 && <AnalyticsDashboard />}
-            {tabValue === 1 && <AthletesList />}
-            {tabValue === 2 && (
+            {tabValue === 1 && (
               <>
                 {/* New Bookings Section */}
                 <Box>
@@ -1338,7 +1246,7 @@ export default function CoachDashboard() {
                 </Box>
               </>
             )}
-            {tabValue === 3 && <CompletedSessions />}
+            {tabValue === 2 && <CompletedSessions />}
           </Box>
         </Stack>
       </Container>
