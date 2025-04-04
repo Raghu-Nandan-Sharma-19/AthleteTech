@@ -53,6 +53,8 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import Rating from '@mui/material/Rating';
 import StarIcon from '@mui/icons-material/Star';
 import DeleteIcon from '@mui/icons-material/Delete';
+import Chatbot from './Chatbot';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 
 export default function AthleteDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -583,6 +585,18 @@ export default function AthleteDashboard() {
                   }
                 }}
               />
+              <Tab 
+                icon={<SmartToyIcon sx={{ mr: 1 }} />}
+                iconPosition="start"
+                label="AI Coach"
+                sx={{ 
+                  borderRadius: '4px 4px 0 0',
+                  '&.Mui-selected': {
+                    color: theme.palette.primary.main,
+                    fontWeight: 600
+                  }
+                }}
+              />
             </Tabs>
           </Box>
 
@@ -693,7 +707,7 @@ export default function AthleteDashboard() {
                   </Grid>
                 ))}
               </Grid>
-            ) : (
+            ) : tabValue === 1 ? (
               <Stack spacing={4}>
                 {/* Upcoming Sessions Section */}
                 <Box>
@@ -1145,6 +1159,43 @@ export default function AthleteDashboard() {
                   </Grid>
                 </Box>
               </Stack>
+            ) : (
+              <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+                <Typography 
+                  variant="h5" 
+                  sx={{ 
+                    mb: 3,
+                    fontWeight: 600,
+                    color: theme.palette.text.primary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}
+                >
+                  <SmartToyIcon color="primary" />
+                  AI Sports Coach Assistant
+                </Typography>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    mb: 4, 
+                    color: theme.palette.text.secondary,
+                    fontSize: { xs: '1rem', sm: '1.1rem' }
+                  }}
+                >
+                  Get instant answers to your training, nutrition, and performance questions. Your AI coach is here to help 24/7.
+                </Typography>
+                <Paper 
+                  elevation={2} 
+                  sx={{ 
+                    borderRadius: 2, 
+                    overflow: 'hidden',
+                    height: '70vh'
+                  }}
+                >
+                  <Chatbot />
+                </Paper>
+              </Box>
             )}
           </Box>
         </Stack>
