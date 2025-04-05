@@ -55,6 +55,9 @@ import StarIcon from '@mui/icons-material/Star';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Chatbot from './Chatbot';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import WorkoutPlanGenerator from './WorkoutPlanGenerator';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import CareerRoadmapGenerator from './CareerRoadmapGenerator';
 
 export default function AthleteDashboard() {
   const { currentUser, userDetails, logout } = useAuth();
@@ -485,6 +488,10 @@ export default function AthleteDashboard() {
     return coaches.filter(coach => coach.sport === selectedSport);
   };
 
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -564,7 +571,7 @@ export default function AthleteDashboard() {
             {/* Navigation Tabs */}
             <Tabs
               value={tabValue}
-              onChange={(e, newValue) => setTabValue(newValue)}
+              onChange={handleTabChange}
               variant="standard"
               sx={{
                 minHeight: { xs: 48, sm: 56, md: 64 },
@@ -599,9 +606,33 @@ export default function AthleteDashboard() {
                 }}
               />
               <Tab 
+                icon={<SportsIcon sx={{ mr: 1 }} />}
+                iconPosition="start"
+                label="Workout Plans"
+                sx={{ 
+                  borderRadius: '4px 4px 0 0',
+                  '&.Mui-selected': {
+                    color: theme.palette.primary.main,
+                    fontWeight: 600
+                  }
+                }}
+              />
+              <Tab 
                 icon={<SmartToyIcon sx={{ mr: 1 }} />}
                 iconPosition="start"
                 label="AI Coach"
+                sx={{ 
+                  borderRadius: '4px 4px 0 0',
+                  '&.Mui-selected': {
+                    color: theme.palette.primary.main,
+                    fontWeight: 600
+                  }
+                }}
+              />
+              <Tab 
+                icon={<TimelineIcon sx={{ mr: 1 }} />}
+                iconPosition="start"
+                label="Career Roadmap"
                 sx={{ 
                   borderRadius: '4px 4px 0 0',
                   '&.Mui-selected': {
@@ -1199,7 +1230,9 @@ export default function AthleteDashboard() {
                   </Grid>
                 </Box>
               </Stack>
-            ) : (
+            ) : tabValue === 2 ? (
+              <WorkoutPlanGenerator />
+            ) : tabValue === 3 ? (
               <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
                 <Typography 
                   variant="h5" 
@@ -1236,7 +1269,9 @@ export default function AthleteDashboard() {
                   <Chatbot />
                 </Paper>
               </Box>
-            )}
+            ) : tabValue === 4 ? (
+              <CareerRoadmapGenerator />
+            ) : null}
           </Box>
         </Stack>
 
