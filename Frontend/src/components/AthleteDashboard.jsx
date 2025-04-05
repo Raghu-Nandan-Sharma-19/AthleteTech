@@ -66,6 +66,7 @@ export default function AthleteDashboard() {
   const [selectedCoach, setSelectedCoach] = useState(null);
   const [bookingDialog, setBookingDialog] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  const [selectedSport, setSelectedSport] = useState('all');
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const isMediumScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -472,6 +473,18 @@ export default function AthleteDashboard() {
     return null;
   };
 
+  // New function to get unique sports from coaches
+  const getUniqueSports = () => {
+    const sportsSet = new Set(coaches.map(coach => coach.sport));
+    return ['all', ...Array.from(sportsSet)];
+  };
+
+  // New function to filter coaches by sport
+  const getFilteredCoaches = () => {
+    if (selectedSport === 'all') return coaches;
+    return coaches.filter(coach => coach.sport === selectedSport);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -603,110 +616,137 @@ export default function AthleteDashboard() {
           {/* Content Section */}
           <Box sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
             {tabValue === 0 ? (
-              <Grid 
-                container 
-                spacing={3}
-                columns={12}
-              >
-                {coaches.map((coach) => (
-                  <Grid item xs={12} sm={6} key={coach.id}>
-                    <Card 
-                      elevation={1}
-                      sx={{ 
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        borderRadius: 2,
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: 3
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ p: 3, flexGrow: 1 }}>
-                        <Stack spacing={3}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Avatar 
+              <>
+                {/* Sports Filter */}
+                <Box sx={{ mb: 3, mt: 2 }}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Filter by Sport</Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                    {getUniqueSports().map((sport) => (
+                      <Chip
+                        key={sport}
+                        label={sport === 'all' ? 'All Sports' : sport}
+                        onClick={() => setSelectedSport(sport)}
+                        color={selectedSport === sport ? 'primary' : 'default'}
+                        variant={selectedSport === sport ? 'filled' : 'outlined'}
+                        icon={<SportsIcon />}
+                        sx={{
+                          borderRadius: 2,
+                          py: 1.5,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: selectedSport === sport ? 'primary.main' : 'primary.soft',
+                          }
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Grid 
+                  container 
+                  spacing={3}
+                  columns={12}
+                >
+                  {getFilteredCoaches().map((coach) => (
+                    <Grid item xs={12} sm={6} key={coach.id}>
+                      <Card 
+                        elevation={1}
+                        sx={{ 
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderRadius: 2,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: 3
+                          }
+                        }}
+                      >
+                        <CardContent sx={{ p: 3, flexGrow: 1 }}>
+                          <Stack spacing={3}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <Avatar 
+                                sx={{ 
+                                  width: { xs: 80, sm: 100 },
+                                  height: { xs: 80, sm: 100 }
+                                }}
+                              >
+                                {coach.firstName?.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Typography 
+                                  variant="h5" 
+                                  sx={{ 
+                                    fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                                    fontWeight: 600,
+                                    mb: 1
+                                  }}
+                                >
+                                  {coach.firstName} {coach.lastName}
+                                </Typography>
+                                <Typography 
+                                  color="text.secondary"
+                                  sx={{ 
+                                    fontSize: { xs: '1rem', sm: '1.1rem' }
+                                  }}
+                                >
+                                  {coach.experience} experience
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            <Typography 
+                              variant="body1"
                               sx={{ 
-                                width: { xs: 80, sm: 100 },
-                                height: { xs: 80, sm: 100 }
+                                fontSize: { xs: '1rem', sm: '1.1rem' }
                               }}
                             >
-                              {coach.firstName?.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Typography 
-                                variant="h5" 
-                                sx={{ 
-                                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                                  fontWeight: 600,
-                                  mb: 1
-                                }}
-                              >
-                                {coach.firstName} {coach.lastName}
-                              </Typography>
-                              <Typography 
-                                color="text.secondary"
-                                sx={{ 
-                                  fontSize: { xs: '1rem', sm: '1.1rem' }
-                                }}
-                              >
-                                {coach.experience} experience
-                              </Typography>
-                            </Box>
-                          </Box>
+                              Specializes in {coach.sport}
+                            </Typography>
 
-                          <Typography 
-                            variant="body1"
+                            <Stack direction="row" spacing={2}>
+                              <Chip 
+                                label={coach.sport}
+                                icon={<SportsIcon />}
+                                sx={{ 
+                                  borderRadius: 1,
+                                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                                  py: 1.5
+                                }}
+                              />
+                              <Chip 
+                                label={coach.experience}
+                                icon={<WorkIcon />}
+                                sx={{ 
+                                  borderRadius: 1,
+                                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                                  py: 1.5
+                                }}
+                              />
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                        <CardActions sx={{ p: 3, pt: 0 }}>
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            onClick={() => handleBookingOpen(coach)}
+                            startIcon={<EventIcon />}
                             sx={{ 
+                              borderRadius: 1,
+                              py: 1.5,
                               fontSize: { xs: '1rem', sm: '1.1rem' }
                             }}
                           >
-                            Specializes in {coach.sport}
-                          </Typography>
-
-                          <Stack direction="row" spacing={2}>
-                            <Chip 
-                              label={coach.sport}
-                              icon={<SportsIcon />}
-                              sx={{ 
-                                borderRadius: 1,
-                                fontSize: { xs: '0.875rem', sm: '1rem' },
-                                py: 1.5
-                              }}
-                            />
-                            <Chip 
-                              label={coach.experience}
-                              icon={<WorkIcon />}
-                              sx={{ 
-                                borderRadius: 1,
-                                fontSize: { xs: '0.875rem', sm: '1rem' },
-                                py: 1.5
-                              }}
-                            />
-                          </Stack>
-                        </Stack>
-                      </CardContent>
-                      <CardActions sx={{ p: 3, pt: 0 }}>
-                        <Button
-                          fullWidth
-                          variant="contained"
-                          onClick={() => handleBookingOpen(coach)}
-                          startIcon={<EventIcon />}
-                          sx={{ 
-                            borderRadius: 1,
-                            py: 1.5,
-                            fontSize: { xs: '1rem', sm: '1.1rem' }
-                          }}
-                        >
-                          Book Session
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
+                            Book Session
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </>
             ) : tabValue === 1 ? (
               <Stack spacing={4}>
                 {/* Upcoming Sessions Section */}

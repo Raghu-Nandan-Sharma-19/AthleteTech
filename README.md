@@ -10,12 +10,24 @@ AthleteTech is a comprehensive platform connecting athletes with professional co
 - AI Sports Mentor
 - Progress Tracking
 - Performance Analytics
+- Sports-based Coach Filtering
+- Markdown-formatted AI Responses
+
+## Recent Updates
+
+### Version 1.1.0
+- Added sports filter for athletes to easily find coaches by sport
+- Enhanced AI Coach responses with proper markdown formatting
+- Improved UI with modern styling and better visual hierarchy
+- Added suggested questions for AI Coach interactions
+- Implemented proper error handling for AI responses
 
 ## Prerequisites
 
 Before you begin, ensure you have installed:
 - Node.js (v14.0.0 or later)
 - npm (v6.0.0 or later)
+- Google Gemini API key (for AI features)
 
 ## Setup Instructions
 
@@ -60,6 +72,7 @@ c. Set up environment variables:
      VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id_here
      VITE_FIREBASE_APP_ID=your_app_id_here
      VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id_here
+     VITE_GEMINI_API_KEY=your_gemini_api_key_here
      ```
 
 4. Start the development servers:
@@ -83,9 +96,13 @@ AthleteTech/
 ├── Frontend/           # React frontend application
 │   ├── src/
 │   │   ├── components/  # React components
+│   │   │   ├── AthleteDashboard.jsx  # Athlete dashboard with sports filter
+│   │   │   ├── Chatbot.jsx          # AI Coach interface
+│   │   │   └── CoachDashboard.jsx   # Coach management interface
 │   │   ├── context/    # Context providers
 │   │   ├── config/     # Configuration files
 │   │   └── services/   # Service integrations
+│   │       └── geminiService.js     # AI integration service
 │   └── public/         # Static assets
 └── Backend/           # Node.js backend application
     ├── src/
@@ -94,6 +111,28 @@ AthleteTech/
     │   └── models/     # Data models
     └── config/        # Backend configuration
 ```
+
+## Key Features in Detail
+
+### Sports Filter
+- Filter coaches by specific sports
+- Dynamic filter options based on available coaches
+- Visual feedback for selected sport
+- Responsive design for all screen sizes
+
+### AI Coach
+- Powered by Google's Gemini AI
+- Markdown-formatted responses
+- Suggested questions for common topics
+- Training plans, nutrition advice, and performance analysis
+- Real-time interaction with proper error handling
+
+### Session Management
+- Real-time booking system
+- Virtual session support
+- Session completion tracking
+- Rating and feedback system
+- Progress monitoring
 
 ## Contributing
 
@@ -108,6 +147,7 @@ AthleteTech/
 - Never commit your `.env` file
 - Don't share your Firebase configuration keys publicly
 - Use environment variables for all sensitive information
+- Keep your Gemini API key secure
 
 ## License
 
